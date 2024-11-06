@@ -1,6 +1,6 @@
 // src/app.js
 import { auth } from './firebase.js';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 
 document.addEventListener("DOMContentLoaded", () => {
   const authForm = document.getElementById("authForm");
@@ -19,13 +19,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
-        alert("User created successfully!");
+        // Check if the email ends with "@columbia.edu"
+        if (!email.endsWith("@columbia.edu")) {
+          throw new Error("Please use your Columbia email to sign up.");
+        }
+
+        // Create a new user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Send verification email
+        await sendEmailVerification(user);
+        alert("A verification email has been sent. Please verify your email before logging in.");
+
+        // Clear form
+        emailInput.value = '';
+        passwordInput.value = '';
+        errorMessage.textContent = '';
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        alert("User logged in successfully!");
+        // Log in an existing user
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Check if the email is verified
+        if (user.emailVerified) {
+          alert("User logged in successfully!");
+          errorMessage.textContent = '';  // Clear error message
+        } else {
+          alert("Please verify your email before logging in.");
+          auth.signOut();  // Sign out if email is not verified
+        }
       }
-      errorMessage.textContent = '';  // Clear error message
     } catch (error) {
       console.error("Error during sign up/login:", error);
       errorMessage.textContent = error.message;  // Display the error message
